@@ -1,0 +1,14 @@
+# fly.toml app configuration file generated for emby-session-monitor on 2024-10-15T18:18:50Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'emby-session-monitor'
+primary_region = 'sin'
+
+[build]
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
