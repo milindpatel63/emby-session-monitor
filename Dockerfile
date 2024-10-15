@@ -23,4 +23,4 @@ WORKDIR /app/backend
 EXPOSE 5023
 
 # Run the application using Gunicorn
-CMD ["gunicorn", "-b", "0.0.0.0:5023", "app:app"]
+CMD ["gunicorn", "-k", "gevent", "-b", "0.0.0.0:5023", "app:app"]
