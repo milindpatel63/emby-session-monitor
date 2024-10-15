@@ -19,8 +19,15 @@ COPY frontend/ /app/frontend
 # Set the working directory to the backend where app.py is located
 WORKDIR /app/backend
 
+# Install Cloudflare Tunnel
+RUN apt-get update && apt-get install -y wget && \
+    wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && \
+    dpkg -i cloudflared-linux-amd64.deb && \
+    rm cloudflared-linux-amd64.deb && \
+    apt-get clean
+
 # Expose the port the app runs on
 EXPOSE 5023
 
-# Run the application using Hypercorn
-CMD ["hypercorn", "app:app", "-b", "0.0.0.0:5023"]
+# Run the application and Cloudflare Tunnel in the background
+CMD ["sh", "-c", "cloudflared tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN} & hypercorn app:app -b 0.0.0.0:5023"]
