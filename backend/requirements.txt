@@ -6,3 +6,4 @@ gunicorn
 gevent
 httpx
 uvloop
+hypercorn

@@ -22,5 +22,5 @@ WORKDIR /app/backend
 # Expose the port the app runs on
 EXPOSE 5023
 
-# Run the application using Gunicorn with Quart worker
-CMD ["gunicorn", "-k", "quart.worker.GunicornUVLoopWorker", "-b", "0.0.0.0:5023", "app:app"]
+# Run the application using Hypercorn
+CMD ["hypercorn", "app:app", "-b", "0.0.0.0:5023"]
