@@ -4,18 +4,27 @@ from flask import Flask, jsonify, send_from_directory
 import httpx
 import os
 from config import EMBY_SERVER, API_KEY, IPINFO_TOKEN, USER_ID
-from functools import lru_cache
 import asyncio
 
 app = Flask(__name__, static_folder="../frontend/static", static_url_path="/static")
 
-@lru_cache(maxsize=100)
+# In-memory cache with a dictionary
+geolocation_cache = {}
+cache_lock = asyncio.Lock()
+
 async def get_geolocation(ip_address):
+    async with cache_lock:
+        if ip_address in geolocation_cache:
+            return geolocation_cache[ip_address]
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"https://ipinfo.io/{ip_address}/json?token={IPINFO_TOKEN}")
             if response.status_code == 200:
-                return response.json()
+                geolocation_data = response.json()
+                async with cache_lock:
+                    geolocation_cache[ip_address] = geolocation_data
+                return geolocation_data
             return {"error": "Unable to fetch geolocation"}
     except httpx.RequestError as e:
         return {"error": str(e)}
