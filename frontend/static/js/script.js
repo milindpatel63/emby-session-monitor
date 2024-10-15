@@ -15,6 +15,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const { EMBY_SERVER: baseUrl, API_KEY: apiKey, IPINFO_TOKEN: ipInfoToken, USER_ID: userId } = config;
 
             fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken);
+            // Uncomment this line to fetch user sessions every 30 seconds
+            setInterval(() => fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken), 30000);
+
         })
         .catch(() => {
             alert("An error occurred while fetching the configuration. Please check the console for details.");
