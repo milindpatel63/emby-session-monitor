@@ -7,16 +7,16 @@ document.addEventListener("DOMContentLoaded", () => {
             return response.json();
         })
         .then(config => {
-            if (!config.EMBY_SERVER || !config.API_KEY || !config.IPINFO_TOKEN || !config.USER_ID) {
+            if (!config.EMBY_SERVER || !config.API_KEY || !config.USER_ID) {
                 alert("Configuration could not be loaded properly. Please check the server.");
                 return;
             }
 
-            const { EMBY_SERVER: baseUrl, API_KEY: apiKey, IPINFO_TOKEN: ipInfoToken, USER_ID: userId } = config;
+            const { EMBY_SERVER: baseUrl, API_KEY: apiKey, USER_ID: userId } = config;
 
-            fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken);
+            fetchUserSessions(userId, baseUrl, apiKey);
             // Uncomment this line to fetch user sessions every 30 seconds
-            setInterval(() => fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken), 30000);
+            setInterval(() => fetchUserSessions(userId, baseUrl, apiKey), 30000);
 
         })
         .catch(() => {
@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 });
 
-function fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken) {
+function fetchUserSessions(userId, baseUrl, apiKey) {
     fetch(`/user_sessions/${userId}`)
         .then(response => {
             if (!response.ok) {
@@ -107,7 +107,7 @@ function fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken) {
                             </div>
                             <div class="network-info">
                                 <div class="label">Location:</div>
-                                <div class="value">${session.RemoteEndPoint} <button class="info-button" data-ip="${session.RemoteEndPoint.split(':')[0]}" data-token="${ipInfoToken}" title="IP Info">ℹ️</button></div>
+                                <div class="value">${session.RemoteEndPoint} <button class="info-button" data-ip="${session.RemoteEndPoint.split(':')[0]}" title="IP Info">ℹ️</button></div>
                                 <div class="label">Bandwidth:</div>
                                 <span class="value">${bandwidthMbps} Mbps</span>
                             </div>
@@ -124,7 +124,7 @@ function fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken) {
                             </div>
                             <div class="network-info">
                                 <div class="label">Location:</div>
-                                <div class="value">${session.RemoteEndPoint} <button class="info-button" data-ip="${session.RemoteEndPoint.split(':')[0]}" data-token="${ipInfoToken}" title="IP Info">ℹ️</button></div>
+                                <div class="value">${session.RemoteEndPoint} <button class="info-button" data-ip="${session.RemoteEndPoint.split(':')[0]}" title="IP Info">ℹ️</button></div>
                             </div>
                         </div>
                     `;
@@ -144,8 +144,7 @@ function addInfoButtonListeners() {
     document.querySelectorAll('.info-button').forEach(button => {
         button.addEventListener('click', async (event) => {
             const ip = event.target.getAttribute('data-ip');
-            const ipInfoToken = event.target.getAttribute('data-token');
-            const ipInfo = await fetchIPInfo(ip, ipInfoToken);
+            const ipInfo = await fetchIPInfo(ip);
             displayIPInfo(ipInfo);
         });
     });
@@ -162,18 +161,20 @@ function addInfoButtonListeners() {
     });
 }
 
-async function fetchIPInfo(ip, ipInfoToken) {
+async function fetchIPInfo(ip) {
     try {
-        const response = await fetch(`https://ipinfo.io/${ip}/json?token=${ipInfoToken}`);
+        const response = await fetch(`/ipinfo/${ip}`);
         if (response.ok) {
             return await response.json();
         } else {
             throw new Error('Unable to fetch IP information');
         }
-    } catch {
+    } catch (error) {
+        console.error('Error fetching IP info:', error);
         return { error: 'Failed to fetch IP information' };
     }
 }
+
 
 function displayIPInfo(ipInfo) {
     const ipInfoContent = document.getElementById('ip-info-content');

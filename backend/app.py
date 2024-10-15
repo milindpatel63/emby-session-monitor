@@ -36,6 +36,14 @@ def get_frontend_config():
     }
     return jsonify(config_data)
 
+@app.route('/ipinfo/<ip>', methods=['GET'])
+def get_ipinfo(ip):
+    try:
+        response = requests.get(f"https://ipinfo.io/{ip}/json?token={IPINFO_TOKEN}")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": "Failed to fetch IP information"}), 500
+
 @app.route('/', methods=['GET'])
 def serve_frontend():
     return send_from_directory('../frontend', 'index.html')
