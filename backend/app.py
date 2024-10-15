@@ -1,12 +1,10 @@
-from gevent import monkey
-monkey.patch_all()
-from flask import Flask, jsonify, send_from_directory
+from quart import Quart, jsonify, send_from_directory
 import httpx
 import os
 from config import EMBY_SERVER, API_KEY, IPINFO_TOKEN, USER_ID
 import asyncio
 
-app = Flask(__name__, static_folder="../frontend/static", static_url_path="/static")
+app = Quart(__name__, static_folder="../frontend/static", static_url_path="/static")
 
 # In-memory cache with a dictionary
 geolocation_cache = {}
@@ -43,7 +41,7 @@ async def get_user_sessions(user_id):
     return jsonify({'error': 'Unable to fetch sessions'}), response.status_code
 
 @app.route('/config', methods=['GET'])
-def get_frontend_config():
+async def get_frontend_config():
     config_data = {
         'EMBY_SERVER': EMBY_SERVER,
         'API_KEY': API_KEY,
@@ -61,8 +59,8 @@ async def get_ipinfo(ip):
         return jsonify({"error": "Failed to fetch IP information"}), 500
 
 @app.route('/', methods=['GET'])
-def serve_frontend():
-    return send_from_directory('../frontend', 'index.html')
+async def serve_frontend():
+    return await send_from_directory('../frontend', 'index.html')
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5023, debug=True)

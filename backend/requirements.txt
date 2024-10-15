@@ -1,7 +1,8 @@
-Flask[async]
+Quart
 Werkzeug
 requests
 python-dotenv
 gunicorn
 gevent
 httpx
+uvloop
