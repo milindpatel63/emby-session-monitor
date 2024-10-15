@@ -22,5 +22,5 @@ WORKDIR /app/backend
 # Expose the port the app runs on
 EXPOSE 5023
 
-# Run the application
-CMD ["python", "app.py"]
+# Run the application using Gunicorn
+CMD ["gunicorn", "-b", "0.0.0.0:5023", "app:app"]
