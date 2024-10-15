@@ -117,8 +117,7 @@ This project is licensed under the MIT License.
 
 For any questions, feel free to reach out:
 
-- [Your Name]
-- [Your Email Address]
+- support.dianaonline.uk
 
 ---
 Thank you for using Emby Session Monitor!
