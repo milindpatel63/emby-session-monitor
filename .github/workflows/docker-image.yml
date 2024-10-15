@@ -38,7 +38,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: your_dockerhub_username/emby-session-monitor:latest
+          tags: milindpatel63/emby-session-monitor:latest
 
       # Clean up the environment
       - name: Remove .env file
