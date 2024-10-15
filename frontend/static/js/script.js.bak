@@ -1,0 +1,315 @@
+document.addEventListener("DOMContentLoaded", () => {
+    // Fetch configuration from the backend
+    fetch('/config')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch configuration');
+            }
+            return response.json();
+        })
+        .then(config => {
+            // Update this section to match the property names returned from the backend
+            if (!config.EMBY_SERVER || !config.API_KEY || !config.IPINFO_TOKEN || !config.USER_ID) {
+                console.error("Configuration is missing required properties:", config);
+                alert("Configuration could not be loaded properly. Please check the server.");
+                return;
+            }
+
+            console.log("Configuration loaded successfully:", config);
+
+            // Assign variables from the config object with correct property names
+            const baseUrl = config.EMBY_SERVER;
+            const apiKey = config.API_KEY;
+            const ipInfoToken = config.IPINFO_TOKEN;
+            const userId = config.USER_ID;
+
+            console.log("Configuration details:", { baseUrl, apiKey, ipInfoToken, userId });
+
+            // Fetch user sessions every 30 seconds
+            fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken);
+            //setInterval(() => fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken), 30000);
+        })
+        .catch(error => {
+            console.error('Error fetching configuration:', error);
+            alert("An error occurred while fetching the configuration. Please check the console for details.");
+        });
+});
+
+function fetchUserSessions(userId, baseUrl, apiKey, ipInfoToken) {
+    console.log("Fetching user sessions for userId:", userId);
+
+    fetch(`/user_sessions/${userId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch user sessions');
+            }
+            return response.json();
+        })
+        .then(sessions => {
+            console.log("User sessions fetched successfully:", sessions);
+
+            const activeContainer = document.getElementById('active-sessions-container');
+            const idleContainer = document.getElementById('idle-sessions-container');
+            activeContainer.innerHTML = ''; // Clear previous sessions
+            idleContainer.innerHTML = ''; // Clear previous sessions
+
+            if (!Array.isArray(sessions) || sessions.length === 0) {
+                console.log("No active or idle sessions found.");
+                return;
+            }
+
+            sessions.forEach(session => {
+                console.log("Processing session:", session);
+                const sessionDiv = document.createElement('div');
+                sessionDiv.className = 'session-card';
+
+                let thumbnailUrl = ""; // Default image if none exists
+                if (session.NowPlayingItem) {
+                    if (session.NowPlayingItem.Type === 'Episode') {
+                        // Use the TV show's poster for episodes
+                        thumbnailUrl = `${baseUrl}/Items/${session.NowPlayingItem.SeriesId}/Images/Primary?quality=90&api_key=${apiKey}`;
+                    } else if (session.NowPlayingItem.Type === 'Movie') {
+                        // Use the movie or specific item's poster
+                        thumbnailUrl = `${baseUrl}/Items/${session.NowPlayingItem.Id}/Images/Primary?quality=90&api_key=${apiKey}`;
+                    }
+                }
+
+                if (session.NowPlayingItem) {
+                    const currentPosition = formatTime(session.PlayState.PositionTicks);
+                    const totalDuration = formatTime(session.NowPlayingItem.RunTimeTicks);
+                    const status = session.PlayState.IsPaused ? "Paused" : "Playing";
+                    const { timeLeft, finishTime } = calculateFinishTime(session.PlayState.PositionTicks, session.NowPlayingItem.RunTimeTicks);
+                    const mediaTitle = getMediaTitle(session.NowPlayingItem);
+                    let videoBitrate = 0;
+                    let audioBitrate = 0;
+
+                    // Iterate through MediaStreams to find video and audio bitrates
+                    if (session.NowPlayingItem.MediaStreams) {
+                        session.NowPlayingItem.MediaStreams.forEach(stream => {
+                            if (stream.Type === 'Video' && stream.BitRate) {
+                                videoBitrate = stream.BitRate; // Bits per second
+                            }
+                            if (stream.Type === 'Audio' && stream.BitRate) {
+                                audioBitrate += stream.BitRate; // Bits per second (sum all audio bitrates)
+                            }
+                        });
+                    }
+
+                    const totalBitrate = videoBitrate + audioBitrate;
+                    const bandwidthMbps = totalBitrate ? (totalBitrate / 1000000).toFixed(2) : "N/A"; // Convert to Mbps and round to two decimals
+
+                    console.log("Session media details:", {
+                        mediaTitle,
+                        currentPosition,
+                        totalDuration,
+                        videoBitrate,
+                        audioBitrate,
+                        bandwidthMbps
+                    });
+
+                    if (session.PlayState.PlayMethod == "Transcode") {
+                        const video = session.TranscodingInfo.IsVideoDirect ? "Direct Stream" : "Transcoding";
+                        const audio = session.TranscodingInfo.IsAudioDirect ? "Direct Stream" : "Transcoding";
+                        const reason = session.TranscodingInfo.TranscodeReasons?.[0] || "Unknown Reason";
+
+                        sessionDiv.innerHTML = `
+                        <div class="thumbnail-container">
+                            <img src="${thumbnailUrl}" alt="Media Thumbnail" class="thumbnail-image">
+                        </div>
+                        <div class="session-info">
+                            <div class="product-info">
+                                <div class="label">Client:</div>
+                                <div class="value">${session.Client}</div>
+                                <div class="label">Device:</div>
+                                <div class="value">${session.DeviceName}</div>
+                                <div class="label">Media:</div>
+                                <div class="value">${mediaTitle}</div>
+                                <div class="label">${status}</div>
+                                <div class="value">${currentPosition} / ${totalDuration}</div>
+                                <div class="label">ETA:</div>
+                                <div class="value">${finishTime}</div>
+                            </div>
+                            <div class="stream-info">
+                                <span>Stream: ${session.PlayState.PlayMethod}</span>
+                                <span>Reason: ${reason}</span>
+                                <span>Container: ${session.NowPlayingItem.Container || 'Unknown'}</span>
+                                <span>Video: ${video}</span>
+                                <span>Audio: ${audio}</span>
+                            </div>
+                            <div class="network-info">
+                                <div class="label">Location:</div>
+                                <div class="value">${session.RemoteEndPoint} <button class="info-button" data-ip="${session.RemoteEndPoint.split(':')[0]}" data-token="${ipInfoToken}" title="IP Info">ℹ️</button></div>
+                                <div class="label">Bandwidth:</div>
+                                <span class="value">${bandwidthMbps} Mbps</span>
+                            </div>
+                        </div>
+                    `;
+                    } else {
+                        const video = "Direct Stream";
+                        const audio = "Direct Stream";
+
+                        sessionDiv.innerHTML = `
+                        <div class="thumbnail-container">
+                            <img src="${thumbnailUrl}" alt="Media Thumbnail" class="thumbnail-image">
+                        </div>
+                        <div class="session-info">
+                            <div class="product-info">
+                                <div class="label">Client:</div>
+                                <div class="value">${session.Client}</div>
+                                <div class="label">Device:</div>
+                                <div class="value">${session.DeviceName}</div>
+                                <div class="label">Media:</div>
+                                <div class="value">${mediaTitle}</div>
+                                <div class="label">${status}</div>
+                                <div class="value">${currentPosition} / ${totalDuration}</div>
+                                <div class="label">ETA:</div>
+                                <div class="value">${finishTime}</div>
+                            </div>
+                            <div class="stream-info">
+                                <span>Stream: ${session.PlayState.PlayMethod}</span>
+                                <span>Container: ${session.NowPlayingItem.Container || 'Unknown'}</span>
+                                <span>Video: ${video}</span>
+                                <span>Audio: ${audio}</span>
+                            </div>
+                            <div class="network-info">
+                                <div class="label">Location:</div>
+                                <div class="value">${session.RemoteEndPoint} <button class="info-button" data-ip="${session.RemoteEndPoint.split(':')[0]}" data-token="${ipInfoToken}" title="IP Info">ℹ️</button></div>
+                                <div class="label">Bandwidth:</div>
+                                <span class="value">${bandwidthMbps} Mbps</span>
+                            </div>
+                        </div>
+                    `;
+                    }
+
+                    activeContainer.appendChild(sessionDiv);
+                } else {
+                    console.log("Idle session detected:", session);
+                    sessionDiv.innerHTML = `
+                        <div class="session-info">
+                            <div class="product-info">
+                                <div class="label">Client:</div>
+                                <div class="value">${session.Client}</div>
+                                <div class="label">Device:</div>
+                                <div class="value">${session.DeviceName}</div>
+                            </div>
+                            <div class="network-info">
+                                <div class="label">Location:</div>
+                                <div class="value">${session.RemoteEndPoint} <button class="info-button" data-ip="${session.RemoteEndPoint.split(':')[0]}" data-token="${ipInfoToken}" title="IP Info">ℹ️</button></div>
+                            </div>
+                        </div>
+                    `;
+
+                    idleContainer.appendChild(sessionDiv);
+                }
+            });
+
+            // Add the button event listeners after sessions are populated
+            addInfoButtonListeners();
+        })
+        .catch(error => {
+            console.error('Error fetching user sessions:', error);
+            alert("An error occurred while fetching user sessions. Please check the console for details.");
+        });
+}
+
+function addInfoButtonListeners() {
+    const buttons = document.querySelectorAll('.info-button');
+    buttons.forEach(button => {
+        button.addEventListener('click', async (event) => {
+            const ip = event.target.getAttribute('data-ip');
+            const ipInfoToken = event.target.getAttribute('data-token');
+            console.log("Fetching IP info for:", ip);
+            const ipInfo = await fetchIPInfo(ip, ipInfoToken);
+            displayIPInfo(ipInfo);
+        });
+    });
+
+    // Close button listener for the IP dialog
+    const closeButton = document.getElementById('close-ip-info');
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            document.getElementById('ip-info-dialog').style.display = 'none';
+        });
+    }
+
+    // Close the IP info dialog by clicking anywhere outside the dialog
+    window.addEventListener('click', (event) => {
+        const ipInfoDialog = document.getElementById('ip-info-dialog');
+        if (ipInfoDialog.style.display === 'block' && !ipInfoDialog.contains(event.target)) {
+            ipInfoDialog.style.display = 'none';
+        }
+    });
+}
+
+async function fetchIPInfo(ip, ipInfoToken) {
+    try {
+        const response = await fetch(`https://ipinfo.io/${ip}/json?token=${ipInfoToken}`);
+        if (response.ok) {
+            const ipInfo = await response.json();
+            console.log("IP info fetched successfully:", ipInfo);
+            return ipInfo;
+        } else {
+            throw new Error('Unable to fetch IP information');
+        }
+    } catch (error) {
+        console.error('Error fetching IP info:', error);
+        return { error: 'Failed to fetch IP information' };
+    }
+}
+
+function displayIPInfo(ipInfo) {
+    const ipInfoContent = document.getElementById('ip-info-content');
+    if (ipInfo.error) {
+        ipInfoContent.innerHTML = `<p>${ipInfo.error}</p>`;
+    } else {
+        // Get the coordinates for Google Maps
+        const loc = ipInfo.loc;
+        const googleMapsUrl = `https://www.google.com/maps?q=${loc}`;
+
+        ipInfoContent.innerHTML = `
+            <p><strong>IP:</strong> ${ipInfo.ip}</p>
+            <p><strong>Location:</strong> ${ipInfo.city}, ${ipInfo.region}, ${ipInfo.country} - ${ipInfo.postal}</p>
+            <p><strong>Organization:</strong> ${ipInfo.org}</p>
+            <p><strong>Latitude, Longitude:</strong> ${loc}
+                <button id="maps-button" class="maps-button" title="View in Google Maps">📍</button>
+            </p>
+            <p><strong>Timezone:</strong> ${ipInfo.timezone}</p>
+        `;
+
+        // Add event listener to the maps button
+        const mapsButton = document.getElementById('maps-button');
+        mapsButton.addEventListener('click', () => {
+            window.open(googleMapsUrl, '_blank');
+        });
+    }
+
+    document.getElementById('ip-info-dialog').style.display = 'block';
+}
+
+function formatTime(ticks) {
+    const totalSeconds = Math.floor(ticks / 10000000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function calculateFinishTime(positionTicks, totalTicks) {
+    const remainingTicks = totalTicks - positionTicks;
+    const remainingSeconds = Math.floor(remainingTicks / 10000000);
+    const now = new Date();
+    const finishTime = new Date(now.getTime() + remainingSeconds * 1000);
+    return {
+        timeLeft: formatTime(remainingTicks),
+        finishTime: finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+}
+
+function getMediaTitle(nowPlayingItem) {
+    if (nowPlayingItem.Type === 'Movie') {
+        return `${nowPlayingItem.Name} (${nowPlayingItem.ProductionYear || 'Unknown Year'})`;
+    } else if (nowPlayingItem.Type === 'Episode') {
+        return `${nowPlayingItem.SeriesName} S${nowPlayingItem.ParentIndexNumber.toString().padStart(2, '0')}E${nowPlayingItem.IndexNumber.toString().padStart(2, '0')} - ${nowPlayingItem.Name}`;
+    }
+    return 'Unknown Media';
+}

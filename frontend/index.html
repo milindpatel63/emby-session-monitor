@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <title>Emby Session Monitor</title>
+    <script src="/static/js/script.js"></script>
+</head>
+<body>
+    <center><h1>Emby User Sessions</h1></center>
+
+    <center><h2>Currently Playing</h2></center>
+    <div id="active-sessions-container" class="sessions-container">
+    </div>
+
+    <center><h2>Idle</h2></center>
+    <div id="idle-sessions-container" class="sessions-container">
+    </div>
+
+    <!-- Dialog to show IP information -->
+    <div id="ip-info-dialog" class="ip-info-dialog">
+        <div class="ip-info-content">
+            <span class="close-button" id="close-ip-info">&times;</span>
+            <div id="ip-info-content"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
